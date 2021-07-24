@@ -34,7 +34,7 @@ def hypersphere_surface_sample(center,radius,k=1):
 def squared_distance(p0, p1):
     return np.sum(np.square(p0-p1))
 
-def Bridson_sampling(dims=np.array([1.0,1.0]), radius=0.05, k=30, hypersphere_sample=hypersphere_volume_sample):
+def Bridson_sampling(dims=np.array([1.0,1.0]), radius=0.05, k=30, hypersphere_sample=hypersphere_volume_sample,initial=None, generate = None):
     # References: Fast Poisson Disk Sampling in Arbitrary Dimensions
     #             Robert Bridson, SIGGRAPH, 2007
 
@@ -71,10 +71,15 @@ def Bridson_sampling(dims=np.array([1.0,1.0]), radius=0.05, k=30, hypersphere_sa
                 return True
 
     def add_point(p):
-        points.append(p)
         indices = (p/cellsize).astype(int)
+        if initial is not None and generate is not None:
+            if ~np.isnan(P[tuple(indices)): #initial point is in another bin
+                generate -= 1 
+                return
+        points.append(p)
         P[tuple(indices)] = p
 
+            
     cellsize = radius/np.sqrt(ndim)
     gridsize = (np.ceil(dims/cellsize)).astype(int)
 
@@ -87,13 +92,23 @@ def Bridson_sampling(dims=np.array([1.0,1.0]), radius=0.05, k=30, hypersphere_sa
     P.fill(np.nan)
 
     points = []
-    add_point(np.random.uniform(np.zeros(ndim), dims))
+    #load in initial point set, if any
+    if initial is not None:
+        for pt in inital:
+            add_point(pt)
+    else:
+        add_point(np.random.uniform(np.zeros(ndim), dims))
     while len(points):
         i = np.random.randint(len(points))
         p = points[i]
         del points[i]
         Q = hypersphere_sample(np.array(p), radius * sample_factor, k)
         for q in Q:
+            if generate is not None:  #check if we have reached limit
+                temp = ~np.isnan(P).any(axis=ndim)
+                print(temp)
+                if temp.size >= generate:
+                    return P[temp]  #return, points matched.
             if in_limits(q) and not in_neighborhood(q):
                 add_point(q)
     return P[~np.isnan(P).any(axis=ndim)]
