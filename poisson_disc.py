@@ -34,7 +34,7 @@ def hypersphere_surface_sample(center,radius,k=1):
 def squared_distance(p0, p1):
     return np.sum(np.square(p0-p1))
 
-def Bridson_sampling(dims=np.array([1.0,1.0]), radius=0.05, k=30, hypersphere_sample=hypersphere_volume_sample,initial=None, generate = None):
+def Bridson_sampling(dims=np.array([1.0,1.0]), radius=0.05, k=30, hypersphere_sample=hypersphere_volume_sample,initial=None,generate = None):
     # References: Fast Poisson Disk Sampling in Arbitrary Dimensions
     #             Robert Bridson, SIGGRAPH, 2007
 
@@ -72,10 +72,6 @@ def Bridson_sampling(dims=np.array([1.0,1.0]), radius=0.05, k=30, hypersphere_sa
 
     def add_point(p):
         indices = (p/cellsize).astype(int)
-        if initial is not None and generate is not None:
-            if ~np.isnan(P[tuple(indices)): #initial point is in another bin
-                generate -= 1 
-                return
         points.append(p)
         P[tuple(indices)] = p
 
@@ -94,8 +90,17 @@ def Bridson_sampling(dims=np.array([1.0,1.0]), radius=0.05, k=30, hypersphere_sa
     points = []
     #load in initial point set, if any
     if initial is not None:
-        for pt in inital:
-            add_point(pt)
+        for pt in initial:
+            indices = (pt/cellsize).astype(int)
+            print(indices)
+            if ~(np.isnan(P[tuple(indices)]).any()):
+                #initial point is in filled bin
+                if generate is not None:
+                    generate = generate - 1 
+                return
+            else :
+                add_point(pt)
+                print('Added initial point',pt)
     else:
         add_point(np.random.uniform(np.zeros(ndim), dims))
     while len(points):
@@ -106,9 +111,10 @@ def Bridson_sampling(dims=np.array([1.0,1.0]), radius=0.05, k=30, hypersphere_sa
         for q in Q:
             if generate is not None:  #check if we have reached limit
                 temp = ~np.isnan(P).any(axis=ndim)
-                print(temp)
-                if temp.size >= generate:
+                #print(temp)
+                if np.sum(temp) >= generate:
                     return P[temp]  #return, points matched.
             if in_limits(q) and not in_neighborhood(q):
                 add_point(q)
+                #print('Added point',q)
     return P[~np.isnan(P).any(axis=ndim)]
